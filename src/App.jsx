@@ -2,6 +2,8 @@ import { createBrowserRouter, Link, RouterProvider, useRouteError } from "react-
 import RegistrationPage from "./Registion";
 import LoginPage from "./login";
 import OtpPage from "./OtpPage";
+import OtpPopup from "../container/otppopup";
+import ResetPasswordPage from "./ResetPasswordPage";
 
 function RouteError() {
   const error = useRouteError();
@@ -19,6 +21,9 @@ const router = createBrowserRouter([
   { path: "/register", element: <RegistrationPage />, errorElement: <RouteError /> },
   { path: "/login", element: <LoginPage />, errorElement: <RouteError /> },
   { path: "/otp/:email", element: <OtpPage />, errorElement: <RouteError /> },
+  { path: "/forgotpassword", element: <OtpPopup />, errorElement: <RouteError /> },
+  { path: "/reset-password", element: <ResetPasswordPage />, errorElement: <RouteError /> },
+
   { path: "*", element: <RouteError /> },
 ]);
 

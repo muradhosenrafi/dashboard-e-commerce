@@ -102,7 +102,9 @@ export default function OtpModal({ email, expiresAt, notice, onClose, onVerified
     setLoading(true);
     const controller = new AbortController();
     requestRef.current = controller;
+
     const pathname = window.location.pathname;
+
     const isCurrentPage = () => !controller.signal.aborted && window.location.pathname === pathname;
     try {
       const { data } = await authApi.post("/verify-otp", { email, otp }, { signal: controller.signal });

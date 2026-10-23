@@ -7,6 +7,8 @@ import useAuthForm from "./components/useAuthForm";
 import { authApi, isSuccessfulResponse, needsVerification } from "./lib/authApi";
 import { normalizeEmail, responseMessage } from "./lib/authValidation";
 import { canResumeVerification, rememberVerification } from "./lib/verificationSession";
+import OtpPopup from "../container/otppopup";
+
 
 export default function LoginPage() {
   const location = useLocation();
@@ -17,8 +19,10 @@ export default function LoginPage() {
   const [serverError, setServerError] = useState("");
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showForgot, setShowForgot] = useState(false); 
   const requestRef = useRef(null);
   const pendingRef = useRef(false);
+
   useEffect(() => () => requestRef.current?.abort(), []);
 
   function handleChange(event) {
@@ -31,55 +35,89 @@ export default function LoginPage() {
     if (!needsVerification(data)) return false;
     const entry = rememberVerification(email, data.otpExpiresAt);
     if (!canResumeVerification(entry)) return false;
-    navigate("/otp", { state: { email, message: "Please verify your email before logging in." } });
+
+    navigate("/otp", {
+      state: {
+        email,
+        message: "Please verify your email before logging in.",
+      },
+    });
     return true;
   }
 
   async function handleSubmit(event) {
     event.preventDefault();
     if (pendingRef.current) return;
+
     setServerError("");
     setLoginSuccess(false);
     if (!validate()) return;
 
     pendingRef.current = true;
     setLoading(true);
+
     const controller = new AbortController();
     requestRef.current = controller;
-    const isCurrentPage = () => !controller.signal.aborted && window.location.pathname === location.pathname;
+
+    const isCurrentPage = () =>
+      !controller.signal.aborted &&
+      window.location.pathname === location.pathname;
+
     const email = normalizeEmail(values.email);
+
     try {
-      const { data } = await authApi.post("/login", {
-        email, password: values.password,
-      }, { signal: controller.signal });
+      const { data } = await authApi.post(
+        "/login",
+        {
+          email,
+          password: values.password,
+        },
+        { signal: controller.signal },
+      );
+
       if (!isCurrentPage()) return;
+
       if (isSuccessfulResponse(data)) setLoginSuccess(true);
       else if (!resumePending(data, email)) {
-        setServerError(responseMessage(data, "Email or password is incorrect."));
+        setServerError(
+          responseMessage(data, "Email or password is incorrect."),
+        );
       }
     } catch (error) {
       if (!isCurrentPage()) return;
+
       const data = error.response?.data;
+
       if (!resumePending(data, email)) {
-        setServerError(responseMessage(data,
-          error.response ? "Email or password is incorrect."
-            : "Cannot connect to the server. Please try again."));
+        setServerError(
+          responseMessage(
+            data,
+            error.response
+              ? "Email or password is incorrect."
+              : "Cannot connect to the server. Please try again.",
+          ),
+        );
       }
     } finally {
       pendingRef.current = false;
       if (requestRef.current === controller) requestRef.current = null;
       if (isCurrentPage()) setLoading(false);
     }
+    
   }
+
+  
 
   return (
     <AuthLayout mode="login">
       <div className="form-badge">
         <Icon name="lock" size={18} />
       </div>
+
       <div className="mt-6 text-[10px] font-semibold tracking-[.2em] text-violet-300">
         YOUR SPACE IS WAITING
       </div>
+
       <h1
         id="page-title"
         tabIndex={-1}
@@ -87,6 +125,7 @@ export default function LoginPage() {
       >
         Welcome back<span className="text-violet-400">.</span>
       </h1>
+
       <p className="mt-3 text-[13px] leading-6 text-slate-400">
         Good to see you. Let’s pick up where you left off.
       </p>
@@ -96,6 +135,7 @@ export default function LoginPage() {
           Email verified successfully. You can log in now.
         </p>
       )}
+
 
       <form noValidate onSubmit={handleSubmit} className="mt-10 space-y-6">
         <FormField
@@ -112,6 +152,7 @@ export default function LoginPage() {
           error={errors.email}
           required
         />
+
         <FormField
           id="password"
           label="Password"
@@ -126,6 +167,20 @@ export default function LoginPage() {
           error={errors.password}
           required
         />
+
+     <div className="-mt-3 flex justify-end">
+  <button
+    onClick={() => setShowForgot(true)}
+    type="button"
+    disabled={loading}
+    className="group inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-medium text-violet-300 transition-all duration-200 hover:bg-violet-400/10 hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    Forgot password?
+    <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+      <Icon name="arrow" size={14} />
+    </span>
+  </button>
+</div>
 
         {/* Server error message */}
         {serverError && (
@@ -158,17 +213,17 @@ export default function LoginPage() {
       <div className="form-divider mt-8">
         <span>New to ARMANE?</span>
       </div>
-      <Link
-        to="/register"
-        className="secondary-button mt-5 w-full"
-      >
+
+      <Link to="/register" className="secondary-button mt-5 w-full">
         Create an account
         <Icon name="arrow" size={16} />
       </Link>
+
       <div className="mt-9 flex gap-3 rounded-xl border border-violet-300/[.08] bg-violet-300/[.025] p-4">
         <span className="mt-0.5 text-violet-300">
           <Icon name="sparkle" size={17} />
         </span>
+
         <div>
           <p className="text-[12px] text-slate-300">
             A little clarity goes a long way.
@@ -178,6 +233,29 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+
+  {showForgot && (
+  <OtpPopup
+    onClose={() => setShowForgot(false)}
+    onSubmit={async (email) => {
+      const { data } = await authApi.post("/forgot-password", {
+        email: normalizeEmail(email),
+      });
+
+      if (!isSuccessfulResponse(data)) {
+        throw new Error(
+          responseMessage(data, "Unable to request a reset link."),
+        );
+      }
+
+      return responseMessage(
+        data,
+        "If an account exists with this email, a password reset link will be sent.",
+      );
+    }}
+  />
+)}
     </AuthLayout>
   );
 }
