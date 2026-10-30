@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link,Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import AuthLayout from "./components/AuthLayout";
 import FormField from "./components/FormField";
 import Icon from "./components/Icon";
@@ -9,7 +9,6 @@ import { normalizeEmail, responseMessage } from "./lib/authValidation";
 import { canResumeVerification, rememberVerification } from "./lib/verificationSession";
 import OtpPopup from "../container/otppopup";
 
-
 export default function LoginPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -17,21 +16,16 @@ export default function LoginPage() {
     email: location.state?.email || "",
   });
   const [serverError, setServerError] = useState("");
-  const [loginSuccess, setLoginSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showForgot, setShowForgot] = useState(false); 
+  const [showForgot, setShowForgot] = useState(false);
   const requestRef = useRef(null);
   const pendingRef = useRef(false);
-
-
-  
 
   useEffect(() => () => requestRef.current?.abort(), []);
 
   function handleChange(event) {
     update(event);
     setServerError("");
-    setLoginSuccess(false);
   }
 
   function resumePending(data, email) {
@@ -53,7 +47,6 @@ export default function LoginPage() {
     if (pendingRef.current) return;
 
     setServerError("");
-    setLoginSuccess(false);
     if (!validate()) return;
 
     pendingRef.current = true;
@@ -62,10 +55,7 @@ export default function LoginPage() {
     const controller = new AbortController();
     requestRef.current = controller;
 
-    const isCurrentPage = () =>
-      !controller.signal.aborted &&
-      window.location.pathname === location.pathname;
-
+    const isActive = () => !controller.signal.aborted;
     const email = normalizeEmail(values.email);
 
     try {
@@ -78,23 +68,21 @@ export default function LoginPage() {
         { signal: controller.signal },
       );
 
-      if (!isCurrentPage()) return;
+      if (!isActive()) return;
 
-if (isSuccessfulResponse(data)) {
-  navigate("/home", { replace: true });
-} else if (!resumePending(data, email)) {
-  setServerError(
-    responseMessage(data, "Email or password is incorrect.")
-  );
-}
+      // Backend সফল হলে { message, user } পাঠায়, তাই data.user ও চেক করা হচ্ছে
+      const loginOk = isSuccessfulResponse(data) || Boolean(data?.user);
 
-      else if (!resumePending(data, email)) {
+      if (loginOk) {
+        // Login successful -> go to homepage
+        navigate("/home", { replace: true });
+      } else if (!resumePending(data, email)) {
         setServerError(
           responseMessage(data, "Email or password is incorrect."),
         );
       }
     } catch (error) {
-      if (!isCurrentPage()) return;
+      if (!isActive()) return;
 
       const data = error.response?.data;
 
@@ -111,12 +99,9 @@ if (isSuccessfulResponse(data)) {
     } finally {
       pendingRef.current = false;
       if (requestRef.current === controller) requestRef.current = null;
-      if (isCurrentPage()) setLoading(false);
+      if (isActive()) setLoading(false);
     }
-    
   }
-
-  
 
   return (
     <AuthLayout mode="login">
@@ -145,7 +130,6 @@ if (isSuccessfulResponse(data)) {
           Email verified successfully. You can log in now.
         </p>
       )}
-
 
       <form noValidate onSubmit={handleSubmit} className="mt-10 space-y-6">
         <FormField
@@ -178,19 +162,19 @@ if (isSuccessfulResponse(data)) {
           required
         />
 
-     <div className="-mt-3 flex justify-end">
-  <button
-    onClick={() => setShowForgot(true)}
-    type="button"
-    disabled={loading}
-    className="group inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-medium text-violet-300 transition-all duration-200 hover:bg-violet-400/10 hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 disabled:cursor-not-allowed disabled:opacity-50"
-  >
-    Forgot password?
-    <span className="transition-transform duration-200 group-hover:translate-x-0.5">
-      <Icon name="arrow" size={14} />
-    </span>
-  </button>
-</div>
+        <div className="-mt-3 flex justify-end">
+          <button
+            onClick={() => setShowForgot(true)}
+            type="button"
+            disabled={loading}
+            className="group inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12px] font-medium text-violet-300 transition-all duration-200 hover:bg-violet-400/10 hover:text-violet-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Forgot password?
+            <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+              <Icon name="arrow" size={14} />
+            </span>
+          </button>
+        </div>
 
         {/* Server error message */}
         {serverError && (
@@ -201,10 +185,6 @@ if (isSuccessfulResponse(data)) {
             <p>{serverError}</p>
           </div>
         )}
-
-        {/* Success message */}
-        {loginSuccess && <Navigate to="/home" replace />}
-       
 
         <button
           type="submit"
@@ -240,28 +220,27 @@ if (isSuccessfulResponse(data)) {
         </div>
       </div>
 
+      {showForgot && (
+        <OtpPopup
+          onClose={() => setShowForgot(false)}
+          onSubmit={async (email) => {
+            const { data } = await authApi.post("/forgot-password", {
+              email: normalizeEmail(email),
+            });
 
-  {showForgot && (
-  <OtpPopup
-    onClose={() => setShowForgot(false)}
-    onSubmit={async (email) => {
-      const { data } = await authApi.post("/forgot-password", {
-        email: normalizeEmail(email),
-      });
+            if (!isSuccessfulResponse(data)) {
+              throw new Error(
+                responseMessage(data, "Unable to request a reset link."),
+              );
+            }
 
-      if (!isSuccessfulResponse(data)) {
-        throw new Error(
-          responseMessage(data, "Unable to request a reset link."),
-        );
-      }
-
-      return responseMessage(
-        data,
-        "If an account exists with this email, a password reset link will be sent.",
-      );
-    }}
-  />
-)}
+            return responseMessage(
+              data,
+              "If an account exists with this email, a password reset link will be sent.",
+            );
+          }}
+        />
+      )}
     </AuthLayout>
   );
 }
