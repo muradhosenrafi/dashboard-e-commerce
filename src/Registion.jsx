@@ -68,8 +68,10 @@ export default function RegistrationPage() {
     requestRef.current = controller;
     const isCurrentPage = () => !controller.signal.aborted && window.location.pathname === location.pathname;
     try {
-      const { data } = await authApi.post("/registration", {
-        username: values.name.trim(), email, password,
+      const { data } = await authApi.post("/registration", 
+        {
+        username: values.name.trim(), 
+        email, password,
       }, { signal: controller.signal });
       if (!isCurrentPage()) return;
       if (isSuccessfulResponse(data)) {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link,Navigate, useLocation, useNavigate } from "react-router-dom";
 import AuthLayout from "./components/AuthLayout";
 import FormField from "./components/FormField";
 import Icon from "./components/Icon";
@@ -22,6 +22,9 @@ export default function LoginPage() {
   const [showForgot, setShowForgot] = useState(false); 
   const requestRef = useRef(null);
   const pendingRef = useRef(false);
+
+
+  
 
   useEffect(() => () => requestRef.current?.abort(), []);
 
@@ -77,7 +80,14 @@ export default function LoginPage() {
 
       if (!isCurrentPage()) return;
 
-      if (isSuccessfulResponse(data)) setLoginSuccess(true);
+if (isSuccessfulResponse(data)) {
+  navigate("/home", { replace: true });
+} else if (!resumePending(data, email)) {
+  setServerError(
+    responseMessage(data, "Email or password is incorrect.")
+  );
+}
+
       else if (!resumePending(data, email)) {
         setServerError(
           responseMessage(data, "Email or password is incorrect."),
@@ -193,12 +203,8 @@ export default function LoginPage() {
         )}
 
         {/* Success message */}
-        {loginSuccess && (
-          <div role="status" className="form-success">
-            <Icon name="check" size={19} />
-            <p>Login successful! Welcome back.</p>
-          </div>
-        )}
+        {loginSuccess && <Navigate to="/home" replace />}
+       
 
         <button
           type="submit"
