@@ -8,8 +8,14 @@ import { authApi, isSuccessfulResponse, needsVerification } from "./lib/authApi"
 import { normalizeEmail, responseMessage } from "./lib/authValidation";
 import { canResumeVerification, rememberVerification } from "./lib/verificationSession";
 import OtpPopup from "../container/otppopup";
+import { useDispatch } from "react-redux";
+import { activeuserifo } from "./slices/userinfoslices";
 
 export default function LoginPage() {
+let dispatch = useDispatch()
+
+
+
   const location = useLocation();
   const navigate = useNavigate();
   const { values, errors, update, validate } = useAuthForm("login", {
@@ -76,7 +82,10 @@ export default function LoginPage() {
       if (loginOk) {
         // Login successful -> go to homepage
         navigate("/home", { replace: true });
-      } else if (!resumePending(data, email)) {
+        dispatch(activeuserifo())
+      } 
+      
+      else if (!resumePending(data, email)) {
         setServerError(
           responseMessage(data, "Email or password is incorrect."),
         );
